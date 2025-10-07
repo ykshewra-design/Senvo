@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Senvo - Free random video chat, voice chat, text chat</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0f1720;
+  --card:rgba(255,255,255,0.03);
+  --accent:#e3b043;
+  --muted:#b6c2d6;
+  --radius:12px;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+body{background:var(--bg); color:#e7eef8; min-height:100vh; display:flex; flex-direction:column;}
+header{padding:18px 22px; display:flex; flex-direction:column; align-items:center; text-align:center;}
+.logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#1b2430,#0f1720);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px;}
+.logo span{color:var(--accent); font-weight:700;font-size:28px;}
+.title{font-size:22px;font-weight:700;margin-bottom:4px;}
+.tagline{font-size:14px;color:#9fb1d0;margin-bottom:4px;}
+.subtitle{font-size:14px;color:yellow;}
+main{padding:16px; display:grid; grid-template-columns:1fr 360px; gap:16px;}
+.panel{background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+.big-actions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
+.big-btn{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; cursor:pointer;}
+.video-btn{background:linear-gradient(90deg,#2b78ff,#6f9bff); color:#fff;}
+.voice-btn{background:linear-gradient(90deg,#c79b34,#f0c472); color:#10121a;}
+.text-btn{background:linear-gradient(90deg,#6ee7b7,#34d399); color:#0b2f1a;}
+.status{color:var(--muted);font-size:13px;margin-bottom:8px;}
+.chat-panel{display:flex;flex-direction:column;height:600px;overflow:hidden;}
+.messages{flex:1;overflow:auto;padding-right:6px;margin-bottom:6px;}
+.msg{margin-bottom:6px;}
+.msg .who{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:2px;}
+.msg .text{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;display:inline-block;color:#eaf0ff;max-width:90%;}
+.input-row{display:flex;gap:6px;}
+.input-row input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;}
+footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;}
+.video-container{position:relative;width:100%;height:0;border-radius:12px;overflow:hidden;transition:height 0.3s ease;background:#000;}
+.video-container.active{height:400px;}
+.remote-grid{display:grid;grid-template-columns:1fr;gap:8px;padding:8px;}
+.remote-video{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+.remote-audio{width:100%;}
+.local-video{position:absolute;bottom:10px;right:10px;width:120px;height:90px;border:2px solid var(--accent);border-radius:8px;object-fit:cover; z-index:10;}
+.controls{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px; z-index:20;}
+.control-btn{background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:50%;border:none;color:#fff;cursor:pointer;}
+.info-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+.small-btn{padding:6px 8px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
+@media(max-width:980px){main{grid-template-columns:1fr} .chat-panel{height:300px}}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo"><span>S</span></div>
+  <div class="title">Senvo</div>
+  <div class="tagline">Connecting people worldwide</div>
+  <div class="subtitle">Choose mode and connect randomly</div>
+</header>
+
+<main>
+  <div class="panel">
+    <div class="status" id="status">Connecting to server...</div>
+    <div class="big-actions">
+      <button id="videoBtn" class="big-btn video-btn">Join Video Chat</button>
+      <button id="voiceBtn" class="big-btn voice-btn">Join Voice Chat</button>
+      <button id="textBtn" class="big-btn text-btn">Join Text Chat</button>
+    </div>
+
+    <div class="info-bar">
+      <div id="modeLabel" style="font-weight:600;color:var(--muted)">Mode: -</div>
+      <div id="roomLabel" style="font-size:13px;color:#9fb1d0">Room: -</div>
+    </div>
+
+    <div class="video-container" id="videoContainer">
+      <div class="remote-grid" id="remoteGrid"></div>
+      <video id="localVideo" class="local-video" autoplay muted playsinline></video>
+      <div class="controls" id="callControls" style="display:none;">
+        <button class="control-btn" id="muteBtn" title="Mute/Unmute">🔊</button>
+        <button class="control-btn" id="videoToggleBtn" title="Video On/Off">📷</button>
+        <button class="control-btn" id="switchCamBtn" title="Switch Camera">🔁</button>
+        <button class="control-btn" id="endCallBtn" title="Hang Up">❌</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="chat-panel panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+      <strong>Public Chat</strong>
+      <div style="font-size:12px;color:#b6c2d6">Messages</div>
+    </div>
+    <div class="messages" id="messages"></div>
+    <div class="input-row">
+      <input id="msgInput" placeholder="Type message..." autocomplete="off"/>
+      <button id="sendBtn" class="big-btn" style="padding:8px;min-width:80px">Send</button>
+    </div>
+  </div>
+</main>
+
+<footer>© 2025 Senvo | Global Connection Enabled</footer>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+/* CONFIG */
+const SERVER_URL = "https://latest-senvo-server.onrender.com"; // change if hosting elsewhere
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: "stun:stun.l.google.com:19302" },
+    {
+      urls: "turn:openrelay.metered.ca:80",
+      username: "openrelayproject",
+      credential: "openrelayproject",
+    },
+  ],
+};
+
+/* STATE */
+let socket = null;
+let myId = null;
+let currentRoom = "global";
+let currentMode = null;
+let localStream = null;
+const pcs = {};
+const iceBuffer = {};
+const creatingOffer = {};
+let currentFacing = 'user';
+
+/* UI refs */
+const statusEl = document.getElementById("status");
+const modeLabel = document.getElementById("modeLabel");
+const roomLabel = document.getElementById("roomLabel");
+const messagesDiv = document.getElementById("messages");
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const videoContainer = document.getElementById("videoContainer");
+const localVideo = document.getElementById("localVideo");
+const remoteGrid = document.getElementById("remoteGrid");
+const callControls = document.getElementById("callControls");
+const muteBtn = document.getElementById("muteBtn");
+const videoToggleBtn = document.getElementById("videoToggleBtn");
+const switchCamBtn = document.getElementById("switchCamBtn");
+const endCallBtn = document.getElementById("endCallBtn");
+
+document.getElementById("videoBtn").onclick = () => startFind("video");
+document.getElementById("voiceBtn").onclick = () => startFind("voice");
+document.getElementById("textBtn").onclick = () => startFind("text");
+
+/* SOCKET SETUP */
+function ensureSocket() {
+  if (socket && socket.connected) return;
+  socket = io(SERVER_URL, { transports: ['websocket'] });
+
+  socket.on("connect", () => {
+    myId = socket.id;
+    console.log("✅ Connected:", myId);
+    statusEl.innerText = "Connected to server";
+    socket.emit("join-room", "global");
+  });
+
+  socket.on("connect_error", err => {
+    console.error("Socket connect_error", err);
+    statusEl.innerText = "Server connection error";
+  });
+
+  socket.on("reconnect", () => {
+    statusEl.innerText = "Reconnected to server";
+    if (currentRoom) socket.emit("join-room", currentRoom);
+  });
+
+  socket.on("disconnect", reason => {
+    statusEl.innerText = "Disconnected from server";
+    cleanupAllPeers();
+  });
+
+  socket.on("message", ({ from, text }) => {
+    logMsg(from === myId ? "You" : from, text);
+  });
+
+  socket.on("matched", async ({ room, peerId, mode }) => {
+    console.log("Matched:", room, peerId, mode);
+    currentRoom = room;
+    currentMode = mode;
+    modeLabel.innerText = `Mode: ${mode}`;
+    roomLabel.innerText = `Room: ${room}`;
+    statusEl.innerText = `Matched in ${mode} — room ${room}`;
+    try { socket.emit("join-room", room); } catch(e) {}
+    if (mode === "video" || mode === "voice") {
+      await startLocalStream(mode);
+      callControls.style.display = "flex";
+    } else {
+      callControls.style.display = "none";
+    }
+  });
+
+  socket.on("peers-in-room", list => {
+    for (const pid of list) {
+      if (pid === myId) continue;
+      if (pcs[pid]) continue;
+      if (myId < pid) {
+        createOffer(pid).catch(e=>console.warn("createOffer err", e));
+      }
+    }
+  });
+
+  socket.on("offer", async ({ from, sdp }) => {
+    try { await handleOffer(from, sdp); } catch(e){ console.error("handleOffer", e); }
+  });
+
+  socket.on("answer", async ({ from, sdp }) => {
+    try { await handleAnswer(from, sdp); } catch(e){ console.error("handleAnswer", e); }
+  });
+
+  socket.on("ice-candidate", async ({ from, candidate }) => {
+    try {
+      if (!pcs[from]) {
+        iceBuffer[from] = iceBuffer[from] || [];
+        iceBuffer[from].push(candidate);
+        return;
+      }
+      await handleICE(from, candidate);
+    } catch(e){ console.warn("ice err", e); }
+  });
+
+  socket.on("peer-left", ({ peerId }) => {
+    if (pcs[peerId]) {
+      try { pcs[peerId].close(); } catch(e){}
+      delete pcs[peerId];
+    }
+    const el = document.getElementById("remote-" + peerId);
+    if (el) el.remove();
+    if (Object.keys(pcs).length === 0) {
+      callControls.style.display = "none";
+      videoContainer.classList.remove("active");
+    }
+    statusEl.innerText = "Peer left";
+  });
+}
+
+/* MESSAGING */
+sendBtn.onclick = () => {
+  const t = msgInput.value.trim();
+  if (!t || !socket) return;
+  const roomToSend = currentRoom || "global";
+  socket.emit("message", { room: roomToSend, from: myId, text: t });
+  logMsg("You", t);
+  msgInput.value = "";
+};
+
+function logMsg(sender, text) {
+  const div = document.createElement("div");
+  div.className = "msg";
+  div.innerHTML = `<div class="who">${sender}</div><div class="text">${escapeHtml(text)}</div>`;
+  messagesDiv.appendChild(div);
+  messagesDiv.scrollTop = messagesDiv.scrollHeight;
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+/* MEDIA & PEER LOGIC */
+async function startLocalStream(mode) {
+  try {
+    const constraints = mode === "video" ? { audio: true, video: { facingMode: currentFacing } } : { audio: true, video: false };
+    if (localStream) {
+      localStream.getTracks().forEach(t => t.stop());
+      localStream = null;
+      localVideo.srcObject = null;
+      remoteGrid.innerHTML = '';
+    }
+    localStream = await navigator.mediaDevices.getUserMedia(constraints);
+    const hasVideo = localStream.getVideoTracks().length > 0;
+    if (hasVideo) {
+      localVideo.srcObject = localStream;
+      localVideo.style.display = "";
+      videoContainer.classList.add("active");
+    } else {
+      localVideo.style.display = "none";
+      videoContainer.classList.add("active");
+    }
+    for (const pid in pcs) {
+      const pc = pcs[pid];
+      const senders = pc.getSenders ? pc.getSenders() : [];
+      for (const track of localStream.getTracks()) {
+        if (track.kind === 'audio') {
+          const sender = senders.find(s => s.track && s.track.kind === 'audio');
+          if (sender && sender.replaceTrack) sender.replaceTrack(track).catch(()=>pc.addTrack(track, localStream));
+          else pc.addTrack(track, localStream);
+        }
+        if (track.kind === 'video') {
+          const sender = senders.find(s => s.track && s.track.kind === 'video');
+          if (sender && sender.replaceTrack) sender.replaceTrack(track).catch(()=>pc.addTrack(track, localStream));
+          else pc.addTrack(track, localStream);
+        }
+      }
+    }
+  } catch (err) {
+    console.error("Media error", err);
+    alert("Camera/Mic access required: " + (err.message || err.name));
+  }
+}
+
+function addRemoteElement(peerId, stream) {
+  let wrapper = document.getElementById("remote-" + peerId);
+  if (!wrapper) {
+    wrapper = document.createElement("div");
+    wrapper.id = "remote-" + peerId;
+    wrapper.style.width = "100%";
+    remoteGrid.appendChild(wrapper);
+  } else {
+    wrapper.innerHTML = "";
+  }
+
+  const hasVideo = stream.getVideoTracks && stream.getVideoTracks().length > 0;
+  if (hasVideo) {
+    const v = document.createElement("video");
+    v.className = "remote-video";
+    v.autoplay = true;
+    v.playsInline = true;
+    v.srcObject = stream;
+    wrapper.appendChild(v);
+  } else {
+    const a = document.createElement("audio");
+    a.className = "remote-audio";
+    a.autoplay = true;
+    a.controls = true;
+    a.srcObject = stream;
+    wrapper.appendChild(a);
+  }
+  callControls.style.display = "flex";
+  videoContainer.classList.add("active");
+}
+
+function createPeerConnection(peerId) {
+  if (pcs[peerId]) return pcs[peerId];
+  const pc = new RTCPeerConnection(ICE_SERVERS);
+
+  if (localStream) {
+    localStream.getTracks().forEach(track => {
+      try { pc.addTrack(track, localStream); } catch(e) { console.warn("addTrack fail", e); }
+    });
+  }
+
+  pc.ontrack = e => {
+    const stream = (e.streams && e.streams[0]) || null;
+    if (stream) addRemoteElement(peerId, stream);
+  };
+
+  pc.onicecandidate = e => {
+    if (e.candidate && socket) {
+      socket.emit("ice-candidate", { to: peerId, from: myId, candidate: e.candidate });
+    }
+  };
+
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (["failed","disconnected","closed"].includes(s)) {
+      try { pc.close(); } catch(e){}
+      delete pcs[peerId];
+      const v = document.getElementById("remote-" + peerId);
+      if (v) v.remove();
+      if (Object.keys(pcs).length === 0) {
+        callControls.style.display = "none";
+        videoContainer.classList.remove("active");
+      }
+    }
+  };
+
+  pcs[peerId] = pc;
+
+  if (iceBuffer[peerId]) {
+    for (const cand of iceBuffer[peerId]) {
+      try { pc.addIceCandidate(cand); } catch(e) { console.warn("buffered addIce failed", e); }
+    }
+    delete iceBuffer[peerId];
+  }
+
+  return pc;
+}
+
+async function createOffer(peerId) {
+  if (creatingOffer[peerId]) return;
+  creatingOffer[peerId] = true;
+  try {
+    const pc = createPeerConnection(peerId);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit("offer", { to: peerId, from: myId, sdp: pc.localDescription });
+  } catch (e) {
+    console.error("createOffer error", e);
+  } finally {
+    creatingOffer[peerId] = false;
+  }
+}
+
+async function handleOffer(peerId, sdp) {
+  const pc = createPeerConnection(peerId);
+  try {
+    await pc.setRemoteDescription(sdp);
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("answer", { to: peerId, from: myId, sdp: pc.localDescription });
+  } catch (e) {
+    console.error("handleOffer failed", e);
+  }
+}
+
+async function handleAnswer(peerId, sdp) {
+  const pc = pcs[peerId];
+  if (!pc) return;
+  try {
+    await pc.setRemoteDescription(sdp);
+  } catch (e) {
+    console.error("handleAnswer failed", e);
+  }
+}
+
+async function handleICE(peerId, candidate) {
+  const pc = pcs[peerId];
+  if (!candidate) return;
+  try {
+    if (pc) await pc.addIceCandidate(candidate);
+    else {
+      iceBuffer[peerId] = iceBuffer[peerId] || [];
+      iceBuffer[peerId].push(candidate);
+    }
+  } catch (e) {
+    console.warn("addIceCandidate failed", e);
+  }
+}
+
+/* CONTROL BUTTONS */
+muteBtn.onclick = () => {
+  if (!localStream) return;
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (!audioTrack) return;
+  audioTrack.enabled = !audioTrack.enabled;
+  muteBtn.innerText = audioTrack.enabled ? "🔊" : "🔇";
+};
+
+videoToggleBtn.onclick = () => {
+  if (!localStream) {
+    startLocalStream("video");
+    videoToggleBtn.innerText = "📷";
+    return;
+  }
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (!videoTrack) return;
+  videoTrack.enabled = !videoTrack.enabled;
+  videoToggleBtn.innerText = videoTrack.enabled ? "📷" : "🚫";
+};
+
+switchCamBtn.onclick = async () => {
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  if (!currentMode || currentMode !== 'video') return;
+  await startLocalStream("video");
+};
+
+endCallBtn.onclick = () => hangup();
+
+/* HANGUP & CLEANUP */
+function hangup() {
+  for (const pid in pcs) {
+    try { pcs[pid].close(); } catch(e){}
+    delete pcs[pid];
+    const v = document.getElementById("remote-" + pid);
+    if (v) v.remove();
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+  }
+  callControls.style.display = "none";
+  videoContainer.classList.remove("active");
+  statusEl.innerText = "Call ended";
+  if (socket && socket.connected && currentRoom && currentRoom !== "global") {
+    try { socket.emit("leave-room", { room: currentRoom }); } catch(e){}
+  }
+  currentRoom = "global";
+  currentMode = null;
+  modeLabel.innerText = "Mode: -";
+  roomLabel.innerText = "Room: -";
+}
+
+function cleanupAllPeers() {
+  for (const pid in pcs) {
+    try { pcs[pid].close(); } catch(e){}
+    delete pcs[pid];
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+  }
+  remoteGrid.innerHTML = '';
+  callControls.style.display = "none";
+  videoContainer.classList.remove("active");
+}
+
+/* FIND MODE */
+function startFind(mode) {
+  ensureSocket();
+  if (localStream && mode === "text") {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+    videoContainer.classList.remove("active");
+  }
+  currentMode = mode;
+  statusEl.innerText = `Finding ${mode} partner...`;
+  socket.emit("find", { mode });
+}
+
+/* UNLOAD */
+window.addEventListener('beforeunload', () => {
+  try {
+    if (socket && socket.connected) {
+      if (currentRoom && currentRoom !== "global") socket.emit("leave-room", { room: currentRoom });
+      socket.disconnect();
+    }
+  } catch(e){}
+});
+
+/* START */
+ensureSocket();
+</script>
+</body>
+</html>
