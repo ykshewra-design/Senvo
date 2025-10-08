@@ -4,6 +4,34 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>Senvo - Free random video chat, voice chat, text chat</title>
+
+<!-- ====== SEO: Description, Keywords, Robots ====== -->
+<meta name="description" content="Senvo — Free random 1-to-1 video, voice and text chat. Meet people worldwide instantly. Secure, lightweight, no signup required." />
+<meta name="keywords" content="random video chat, free video chat, voice chat, 1-to-1 chat, meet strangers, Senvo, online chat, webcam chat, instant chat" />
+<meta name="author" content="YNX" />
+<meta name="robots" content="index,follow" />
+
+<!-- ====== Open Graph / Twitter (sharing preview) ====== -->
+<meta property="og:title" content="Senvo — Free Random Video & Voice Chat" />
+<meta property="og:description" content="Meet people worldwide — free 1-to-1 video, voice and text chat. No signup required." />
+<meta property="og:image" content="https://yourdomain.com/og-preview.jpg" />
+<meta property="og:url" content="https://yourdomain.com" />
+<meta property="og:type" content="website" />
+<meta name="twitter:card" content="summary_large_image" />
+
+<!-- ====== Structured Data (basic) ====== -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Senvo",
+  "url": "https://yourdomain.com",
+  "description": "Free random video, voice and text chat to meet people globally.",
+  "applicationCategory": "SocialNetworking",
+  "author": { "@type": "Person", "name": "YNX" }
+}
+</script>
+
 <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 :root{
@@ -47,6 +75,7 @@ footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;}
 .control-btn{background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:50%;border:none;color:#fff;cursor:pointer;}
 .info-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
 .small-btn{padding:6px 8px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
+.private-panel { position: fixed; right: 20px; bottom: 20px; width: 340px; max-height: 480px; z-index: 9999; display:flex; flex-direction:column; }
 @media(max-width:980px){main{grid-template-columns:1fr} .chat-panel{height:300px}}
 </style>
 </head>
@@ -102,16 +131,22 @@ footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;}
 <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 <script>
 /* CONFIG */
-const SERVER_URL = "https://latest-senvo-server.onrender.com"; // change if hosting elsewhere
+const SERVER_URL = "https://latest-senvo-server.onrender.com"; // <-- PUT your signaling server URL here if different
 const ICE_SERVERS = {
   iceServers: [
+    // Google STUN (FREE)
     { urls: "stun:stun.l.google.com:19302" },
+    // Metered TURN fallback (optional) - replace with your own Metered credentials if you create account
     {
-      urls: "turn:openrelay.metered.ca:80",
+      urls: [
+        "turn:openrelay.metered.ca:80",
+        "turn:openrelay.metered.ca:443",
+        "turn:openrelay.metered.ca:443?transport=tcp"
+      ],
       username: "openrelayproject",
-      credential: "openrelayproject",
-    },
-  ],
+      credential: "openrelayproject"
+    }
+  ]
 };
 
 /* STATE */
@@ -172,8 +207,14 @@ function ensureSocket() {
     cleanupAllPeers();
   });
 
-  socket.on("message", ({ from, text }) => {
-    logMsg(from === myId ? "You" : from, text);
+  // MESSAGE (handles both public and private - server must emit room in payload)
+  socket.on("message", ({ room, from, text }) => {
+    const sender = (from === myId) ? "You" : from;
+    if (room && room !== "global") {
+      appendPrivateMsg(room, sender, text);
+    } else {
+      logMsg(sender, text);
+    }
   });
 
   socket.on("matched", async ({ room, peerId, mode }) => {
@@ -183,19 +224,42 @@ function ensureSocket() {
     modeLabel.innerText = `Mode: ${mode}`;
     roomLabel.innerText = `Room: ${room}`;
     statusEl.innerText = `Matched in ${mode} — room ${room}`;
-    try { socket.emit("join-room", room); } catch(e) {}
+
+    // Start local media first (important) so offers will include tracks
     if (mode === "video" || mode === "voice") {
-      await startLocalStream(mode);
-      callControls.style.display = "flex";
+      try {
+        await startLocalStream(mode);
+        callControls.style.display = "flex";
+      } catch(e){
+        console.warn("startLocalStream in matched failed", e);
+      }
     } else {
       callControls.style.display = "none";
     }
+
+    // join the private room on server (so server routing for messages works)
+    try { socket.emit("join-room", room); } catch(e) { console.warn(e); }
+
+    // open private text UI if text mode
+    if (mode === "text") {
+      openPrivateTextChat(room, peerId);
+    }
   });
 
-  socket.on("peers-in-room", list => {
+  // peers-in-room: ensure localStream ready before creating offers
+  socket.on("peers-in-room", async list => {
     for (const pid of list) {
       if (pid === myId) continue;
       if (pcs[pid]) continue;
+      // ensure local media if this is a media mode
+      if (currentMode === "video" || currentMode === "voice") {
+        if (!localStream) {
+          try {
+            await startLocalStream(currentMode);
+          } catch(e){ console.warn("failed to start local stream before offer", e); }
+        }
+      }
+      // deterministic offer creation to avoid double-offer
       if (myId < pid) {
         createOffer(pid).catch(e=>console.warn("createOffer err", e));
       }
@@ -228,6 +292,18 @@ function ensureSocket() {
     }
     const el = document.getElementById("remote-" + peerId);
     if (el) el.remove();
+    // close any private chat for that room (try by currentRoom fallback)
+    const privateEl = document.getElementById('private-chat-' + peerId) || document.getElementById('private-chat-' + currentRoom);
+    if (privateEl) {
+      const box = privateEl.querySelector('[id^="private-messages-"]');
+      if (box) {
+        const note = document.createElement('div');
+        note.style.color = 'var(--muted)';
+        note.style.marginTop = '6px';
+        note.innerText = 'Peer left.';
+        box.appendChild(note);
+      }
+    }
     if (Object.keys(pcs).length === 0) {
       callControls.style.display = "none";
       videoContainer.classList.remove("active");
@@ -242,7 +318,8 @@ sendBtn.onclick = () => {
   if (!t || !socket) return;
   const roomToSend = currentRoom || "global";
   socket.emit("message", { room: roomToSend, from: myId, text: t });
-  logMsg("You", t);
+  if (roomToSend === "global") logMsg("You", t);
+  else appendPrivateMsg(roomToSend, "You", t);
   msgInput.value = "";
 };
 
@@ -255,6 +332,64 @@ function logMsg(sender, text) {
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
+
+/* PRIVATE TEXT CHAT UI */
+function openPrivateTextChat(room, peerId) {
+  if (document.getElementById('private-chat-' + room)) return; // already open
+
+  const container = document.createElement('div');
+  container.id = 'private-chat-' + room;
+  container.className = 'private-panel panel';
+  container.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border-bottom:1px solid rgba(255,255,255,0.03)">
+      <div style="font-weight:700">Private Chat</div>
+      <div style="font-size:12px;color:#9fb1d0">${peerId}</div>
+    </div>
+    <div id="private-messages-${room}" style="padding:8px;overflow:auto;height:260px"></div>
+    <div style="display:flex;gap:6px;padding:8px;border-top:1px solid rgba(255,255,255,0.03)">
+      <input id="private-input-${room}" placeholder="Type a private message..." style="flex:1;padding:8px;border-radius:6px;background:transparent;border:1px solid rgba(255,255,255,0.04);color:inherit" />
+      <button id="private-send-${room}" class="small-btn">Send</button>
+      <button id="private-close-${room}" class="small-btn">Close</button>
+    </div>
+  `;
+  document.body.appendChild(container);
+
+  document.getElementById('private-send-' + room).onclick = () => {
+    const input = document.getElementById('private-input-' + room);
+    const t = input.value.trim();
+    if (!t || !socket) return;
+    socket.emit('message', { room, from: myId, text: t });
+    appendPrivateMsg(room, 'You', t);
+    input.value = '';
+  };
+
+  document.getElementById('private-close-' + room).onclick = () => {
+    const el = document.getElementById('private-chat-' + room);
+    if (el) el.remove();
+    if (socket && socket.connected) socket.emit('leave-room', { room });
+    currentRoom = 'global';
+    currentMode = null;
+    modeLabel.innerText = 'Mode: -';
+    roomLabel.innerText = 'Room: -';
+  };
+}
+
+function appendPrivateMsg(room, sender, text) {
+  let box = document.getElementById('private-messages-' + room);
+  if (!box) {
+    box = document.querySelector('[id^="private-messages-"]');
+    if (!box) {
+      logMsg(sender + " (private)", text);
+      return;
+    }
+  }
+  const div = document.createElement('div');
+  div.style.marginBottom = '8px';
+  div.innerHTML = `<div style="font-weight:600;font-size:12px;color:var(--muted)">${sender}</div>
+                   <div style="background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;color:#eaf0ff">${escapeHtml(text)}</div>`;
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
 }
 
 /* MEDIA & PEER LOGIC */
@@ -277,6 +412,7 @@ async function startLocalStream(mode) {
       localVideo.style.display = "none";
       videoContainer.classList.add("active");
     }
+    // If peerConnections already exist, add/replace tracks
     for (const pid in pcs) {
       const pc = pcs[pid];
       const senders = pc.getSenders ? pc.getSenders() : [];
@@ -284,18 +420,23 @@ async function startLocalStream(mode) {
         if (track.kind === 'audio') {
           const sender = senders.find(s => s.track && s.track.kind === 'audio');
           if (sender && sender.replaceTrack) sender.replaceTrack(track).catch(()=>pc.addTrack(track, localStream));
-          else pc.addTrack(track, localStream);
+          else {
+            try { pc.addTrack(track, localStream); } catch(e) { console.warn("addTrack audio fail", e); }
+          }
         }
         if (track.kind === 'video') {
           const sender = senders.find(s => s.track && s.track.kind === 'video');
           if (sender && sender.replaceTrack) sender.replaceTrack(track).catch(()=>pc.addTrack(track, localStream));
-          else pc.addTrack(track, localStream);
+          else {
+            try { pc.addTrack(track, localStream); } catch(e) { console.warn("addTrack video fail", e); }
+          }
         }
       }
     }
   } catch (err) {
     console.error("Media error", err);
     alert("Camera/Mic access required: " + (err.message || err.name));
+    throw err;
   }
 }
 
@@ -334,195 +475,23 @@ function createPeerConnection(peerId) {
   if (pcs[peerId]) return pcs[peerId];
   const pc = new RTCPeerConnection(ICE_SERVERS);
 
+  // Add local tracks if available
   if (localStream) {
     localStream.getTracks().forEach(track => {
       try { pc.addTrack(track, localStream); } catch(e) { console.warn("addTrack fail", e); }
     });
   }
 
-  pc.ontrack = e => {
-    const stream = (e.streams && e.streams[0]) || null;
-    if (stream) addRemoteElement(peerId, stream);
-  };
-
+  // Debug logs + candidate relay
   pc.onicecandidate = e => {
+    console.log("onicecandidate:", peerId, e.candidate);
     if (e.candidate && socket) {
       socket.emit("ice-candidate", { to: peerId, from: myId, candidate: e.candidate });
     }
   };
 
-  pc.onconnectionstatechange = () => {
-    const s = pc.connectionState;
-    if (["failed","disconnected","closed"].includes(s)) {
-      try { pc.close(); } catch(e){}
-      delete pcs[peerId];
-      const v = document.getElementById("remote-" + peerId);
-      if (v) v.remove();
-      if (Object.keys(pcs).length === 0) {
-        callControls.style.display = "none";
-        videoContainer.classList.remove("active");
-      }
-    }
+  pc.oniceconnectionstatechange = () => {
+    console.log("ICE connection state for", peerId, "=", pc.iceConnectionState);
   };
 
-  pcs[peerId] = pc;
-
-  if (iceBuffer[peerId]) {
-    for (const cand of iceBuffer[peerId]) {
-      try { pc.addIceCandidate(cand); } catch(e) { console.warn("buffered addIce failed", e); }
-    }
-    delete iceBuffer[peerId];
-  }
-
-  return pc;
-}
-
-async function createOffer(peerId) {
-  if (creatingOffer[peerId]) return;
-  creatingOffer[peerId] = true;
-  try {
-    const pc = createPeerConnection(peerId);
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    socket.emit("offer", { to: peerId, from: myId, sdp: pc.localDescription });
-  } catch (e) {
-    console.error("createOffer error", e);
-  } finally {
-    creatingOffer[peerId] = false;
-  }
-}
-
-async function handleOffer(peerId, sdp) {
-  const pc = createPeerConnection(peerId);
-  try {
-    await pc.setRemoteDescription(sdp);
-    const answer = await pc.createAnswer();
-    await pc.setLocalDescription(answer);
-    socket.emit("answer", { to: peerId, from: myId, sdp: pc.localDescription });
-  } catch (e) {
-    console.error("handleOffer failed", e);
-  }
-}
-
-async function handleAnswer(peerId, sdp) {
-  const pc = pcs[peerId];
-  if (!pc) return;
-  try {
-    await pc.setRemoteDescription(sdp);
-  } catch (e) {
-    console.error("handleAnswer failed", e);
-  }
-}
-
-async function handleICE(peerId, candidate) {
-  const pc = pcs[peerId];
-  if (!candidate) return;
-  try {
-    if (pc) await pc.addIceCandidate(candidate);
-    else {
-      iceBuffer[peerId] = iceBuffer[peerId] || [];
-      iceBuffer[peerId].push(candidate);
-    }
-  } catch (e) {
-    console.warn("addIceCandidate failed", e);
-  }
-}
-
-/* CONTROL BUTTONS */
-muteBtn.onclick = () => {
-  if (!localStream) return;
-  const audioTrack = localStream.getAudioTracks()[0];
-  if (!audioTrack) return;
-  audioTrack.enabled = !audioTrack.enabled;
-  muteBtn.innerText = audioTrack.enabled ? "🔊" : "🔇";
-};
-
-videoToggleBtn.onclick = () => {
-  if (!localStream) {
-    startLocalStream("video");
-    videoToggleBtn.innerText = "📷";
-    return;
-  }
-  const videoTrack = localStream.getVideoTracks()[0];
-  if (!videoTrack) return;
-  videoTrack.enabled = !videoTrack.enabled;
-  videoToggleBtn.innerText = videoTrack.enabled ? "📷" : "🚫";
-};
-
-switchCamBtn.onclick = async () => {
-  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
-  if (!currentMode || currentMode !== 'video') return;
-  await startLocalStream("video");
-};
-
-endCallBtn.onclick = () => hangup();
-
-/* HANGUP & CLEANUP */
-function hangup() {
-  for (const pid in pcs) {
-    try { pcs[pid].close(); } catch(e){}
-    delete pcs[pid];
-    const v = document.getElementById("remote-" + pid);
-    if (v) v.remove();
-  }
-  if (localStream) {
-    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
-    localStream = null;
-    localVideo.srcObject = null;
-  }
-  callControls.style.display = "none";
-  videoContainer.classList.remove("active");
-  statusEl.innerText = "Call ended";
-  if (socket && socket.connected && currentRoom && currentRoom !== "global") {
-    try { socket.emit("leave-room", { room: currentRoom }); } catch(e){}
-  }
-  currentRoom = "global";
-  currentMode = null;
-  modeLabel.innerText = "Mode: -";
-  roomLabel.innerText = "Room: -";
-}
-
-function cleanupAllPeers() {
-  for (const pid in pcs) {
-    try { pcs[pid].close(); } catch(e){}
-    delete pcs[pid];
-  }
-  if (localStream) {
-    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
-    localStream = null;
-    localVideo.srcObject = null;
-  }
-  remoteGrid.innerHTML = '';
-  callControls.style.display = "none";
-  videoContainer.classList.remove("active");
-}
-
-/* FIND MODE */
-function startFind(mode) {
-  ensureSocket();
-  if (localStream && mode === "text") {
-    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
-    localStream = null;
-    localVideo.srcObject = null;
-    videoContainer.classList.remove("active");
-  }
-  currentMode = mode;
-  statusEl.innerText = `Finding ${mode} partner...`;
-  socket.emit("find", { mode });
-}
-
-/* UNLOAD */
-window.addEventListener('beforeunload', () => {
-  try {
-    if (socket && socket.connected) {
-      if (currentRoom && currentRoom !== "global") socket.emit("leave-room", { room: currentRoom });
-      socket.disconnect();
-    }
-  } catch(e){}
-});
-
-/* START */
-ensureSocket();
-</script>
-</body>
-</html>
+  pc.onc
