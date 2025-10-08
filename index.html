@@ -494,4 +494,195 @@ function createPeerConnection(peerId) {
     console.log("ICE connection state for", peerId, "=", pc.iceConnectionState);
   };
 
-  pc.onc
+  pc.onconnectionstatechange = () => {
+    console.log("PC state for", peerId, "=", pc.connectionState);
+    const s = pc.connectionState;
+    if (["failed","disconnected","closed"].includes(s)) {
+      try { pc.close(); } catch(e){}
+      delete pcs[peerId];
+      const v = document.getElementById("remote-" + peerId);
+      if (v) v.remove();
+      if (Object.keys(pcs).length === 0) {
+        callControls.style.display = "none";
+        videoContainer.classList.remove("active");
+      }
+    }
+  };
+
+  pc.ontrack = e => {
+    console.log("ontrack from", peerId, "streams:", e.streams && e.streams.length);
+    const stream = (e.streams && e.streams[0]) || null;
+    if (stream) addRemoteElement(peerId, stream);
+  };
+
+  pcs[peerId] = pc;
+
+  // drain buffered ICE candidates
+  if (iceBuffer[peerId]) {
+    for (const cand of iceBuffer[peerId]) {
+      try { pc.addIceCandidate(cand); } catch(e) { console.warn("buffered addIce failed", e); }
+    }
+    delete iceBuffer[peerId];
+  }
+
+  return pc;
+}
+
+async function createOffer(peerId) {
+  if (creatingOffer[peerId]) return;
+  creatingOffer[peerId] = true;
+  try {
+    const pc = createPeerConnection(peerId);
+    // ensure local tracks for media calls
+    if ((currentMode === "video" || currentMode === "voice") && !localStream) {
+      try { await startLocalStream(currentMode); } catch(e){ console.warn("could not start local before offer", e); }
+    }
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    socket.emit("offer", { to: peerId, from: myId, sdp: pc.localDescription });
+  } catch (e) {
+    console.error("createOffer error", e);
+  } finally {
+    creatingOffer[peerId] = false;
+  }
+}
+
+async function handleOffer(peerId, sdp) {
+  const pc = createPeerConnection(peerId);
+  try {
+    await pc.setRemoteDescription(sdp);
+    // ensure local tracks present before answer (for two-way)
+    if ((currentMode === "video" || currentMode === "voice") && !localStream) {
+      await startLocalStream(currentMode);
+    }
+    const answer = await pc.createAnswer();
+    await pc.setLocalDescription(answer);
+    socket.emit("answer", { to: peerId, from: myId, sdp: pc.localDescription });
+  } catch (e) {
+    console.error("handleOffer failed", e);
+  }
+}
+
+async function handleAnswer(peerId, sdp) {
+  const pc = pcs[peerId];
+  if (!pc) return;
+  try {
+    await pc.setRemoteDescription(sdp);
+  } catch (e) {
+    console.error("handleAnswer failed", e);
+  }
+}
+
+async function handleICE(peerId, candidate) {
+  const pc = pcs[peerId];
+  if (!candidate) return;
+  try {
+    if (pc) await pc.addIceCandidate(candidate);
+    else {
+      iceBuffer[peerId] = iceBuffer[peerId] || [];
+      iceBuffer[peerId].push(candidate);
+    }
+  } catch (e) {
+    console.warn("addIceCandidate failed", e);
+  }
+}
+
+/* CONTROL BUTTONS */
+muteBtn.onclick = () => {
+  if (!localStream) return;
+  const audioTrack = localStream.getAudioTracks()[0];
+  if (!audioTrack) return;
+  audioTrack.enabled = !audioTrack.enabled;
+  muteBtn.innerText = audioTrack.enabled ? "🔊" : "🔇";
+};
+
+videoToggleBtn.onclick = () => {
+  if (!localStream) {
+    startLocalStream("video");
+    videoToggleBtn.innerText = "📷";
+    return;
+  }
+  const videoTrack = localStream.getVideoTracks()[0];
+  if (!videoTrack) return;
+  videoTrack.enabled = !videoTrack.enabled;
+  videoToggleBtn.innerText = videoTrack.enabled ? "📷" : "🚫";
+};
+
+switchCamBtn.onclick = async () => {
+  currentFacing = currentFacing === 'user' ? 'environment' : 'user';
+  if (!currentMode || currentMode !== 'video') return;
+  await startLocalStream("video");
+};
+
+endCallBtn.onclick = () => hangup();
+
+/* HANGUP & CLEANUP */
+function hangup() {
+  for (const pid in pcs) {
+    try { pcs[pid].close(); } catch(e){}
+    delete pcs[pid];
+    const v = document.getElementById("remote-" + pid);
+    if (v) v.remove();
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+  }
+  callControls.style.display = "none";
+  videoContainer.classList.remove("active");
+  statusEl.innerText = "Call ended";
+  if (socket && socket.connected && currentRoom && currentRoom !== "global") {
+    try { socket.emit("leave-room", { room: currentRoom }); } catch(e){}
+  }
+  currentRoom = "global";
+  currentMode = null;
+  modeLabel.innerText = "Mode: -";
+  roomLabel.innerText = "Room: -";
+}
+
+function cleanupAllPeers() {
+  for (const pid in pcs) {
+    try { pcs[pid].close(); } catch(e){}
+    delete pcs[pid];
+  }
+  if (localStream) {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+  }
+  remoteGrid.innerHTML = '';
+  callControls.style.display = "none";
+  videoContainer.classList.remove("active");
+}
+
+/* FIND MODE */
+function startFind(mode) {
+  ensureSocket();
+  if (localStream && mode === "text") {
+    localStream.getTracks().forEach(t => { try{t.stop()}catch{} });
+    localStream = null;
+    localVideo.srcObject = null;
+    videoContainer.classList.remove("active");
+  }
+  currentMode = mode;
+  statusEl.innerText = `Finding ${mode} partner...`;
+  // signaling 'find' will trigger matched event from server
+  socket.emit("find", { mode });
+}
+
+/* UNLOAD */
+window.addEventListener('beforeunload', () => {
+  try {
+    if (socket && socket.connected) {
+      if (currentRoom && currentRoom !== "global") socket.emit("leave-room", { room: currentRoom });
+      socket.disconnect();
+    }
+  } catch(e){}
+});
+
+/* START */
+ensureSocket();
+</script>
+</body>
+</html>
