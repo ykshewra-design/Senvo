@@ -1,84 +1,98 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Senvo - Free random video chat, voice chat, text chat</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
 
-<!-- ====== SEO: Description, Keywords, Robots ====== -->
-<meta name="description" content="Senvo — Free random 1-to-1 video, voice and text chat. Meet people worldwide instantly. Secure, lightweight, no signup required." />
-<meta name="keywords" content="random video chat, free video chat, voice chat, 1-to-1 chat, meet strangers, Senvo, online chat, webcam chat, instant chat" />
-<meta name="author" content="YNX" />
-<meta name="robots" content="index,follow" />
+  <!-- ====== Basic Info ====== -->
+  <title>Senvo - Free Random Video, Voice & Text Chat | Meet New People</title>
+  <meta name="description" content="Senvo — Free random 1-to-1 video, voice and text chat. Meet people worldwide instantly. Secure, lightweight, no signup required." />
+  <meta name="keywords" content="Senvo, random video chat, free chat, voice chat, 1-to-1 chat, meet strangers, webcam chat, online chat, instant chat" />
+  <meta name="author" content="YNX" />
+  <meta name="robots" content="index,follow" />
 
-<!-- ====== Open Graph / Twitter (sharing preview) ====== -->
-<meta property="og:title" content="Senvo — Free Random Video & Voice Chat" />
-<meta property="og:description" content="Meet people worldwide — free 1-to-1 video, voice and text chat. No signup required." />
-<meta property="og:image" content="https://yourdomain.com/og-preview.jpg" />
-<meta property="og:url" content="https://yourdomain.com" />
-<meta property="og:type" content="website" />
-<meta name="twitter:card" content="summary_large_image" />
+  <!-- ====== Open Graph / Social Sharing ====== -->
+  <meta property="og:title" content="Senvo — Free Random Video & Voice Chat" />
+  <meta property="og:description" content="Meet people worldwide — free 1-to-1 video, voice and text chat. No signup required." />
+  <meta property="og:image" content="https://senvo.pages.dev/og-preview.jpg" />
+  <meta property="og:url" content="https://senvo.pages.dev/" />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary_large_image" />
 
-<!-- ====== Structured Data (basic) ====== -->
-<script type="application/ld+json">
-{
-  "@context": "https://schema.org",
-  "@type": "WebApplication",
-  "name": "Senvo",
-  "url": "https://yourdomain.com",
-  "description": "Free random video, voice and text chat to meet people globally.",
-  "applicationCategory": "SocialNetworking",
-  "author": { "@type": "Person", "name": "YNX" }
-}
-</script>
+  <!-- ====== Structured Data (Google Rich Results) ====== -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "Senvo",
+    "url": "https://senvo.pages.dev/",
+    "description": "Free random video, voice and text chat to meet people globally.",
+    "applicationCategory": "SocialNetworking",
+    "author": { "@type": "Person", "name": "YNX" },
+    "publisher": {
+      "@type": "Organization",
+      "name": "Senvo",
+      "url": "https://senvo.pages.dev"
+    }
+  }
+  </script>
 
-<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
-<style>
-:root{
-  --bg:#0f1720;
-  --card:rgba(255,255,255,0.03);
-  --accent:#e3b043;
-  --muted:#b6c2d6;
-  --radius:12px;
-}
-*{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
-body{background:var(--bg); color:#e7eef8; min-height:100vh; display:flex; flex-direction:column;}
-header{padding:18px 22px; display:flex; flex-direction:column; align-items:center; text-align:center;}
-.logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#1b2430,#0f1720);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px;}
-.logo span{color:var(--accent); font-weight:700;font-size:28px;}
-.title{font-size:22px;font-weight:700;margin-bottom:4px;}
-.tagline{font-size:14px;color:#9fb1d0;margin-bottom:4px;}
-.subtitle{font-size:14px;color:yellow;}
-main{padding:16px; display:grid; grid-template-columns:1fr 360px; gap:16px;}
-.panel{background:var(--card); border-radius:var(--radius); padding:16px; box-shadow:0 8px 30px rgba(0,0,0,0.5);}
-.big-actions{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;}
-.big-btn{flex:1; padding:12px; border-radius:10px; border:none; font-weight:700; cursor:pointer;}
-.video-btn{background:linear-gradient(90deg,#2b78ff,#6f9bff); color:#fff;}
-.voice-btn{background:linear-gradient(90deg,#c79b34,#f0c472); color:#10121a;}
-.text-btn{background:linear-gradient(90deg,#6ee7b7,#34d399); color:#0b2f1a;}
-.status{color:var(--muted);font-size:13px;margin-bottom:8px;}
-.chat-panel{display:flex;flex-direction:column;height:600px;overflow:hidden;}
-.messages{flex:1;overflow:auto;padding-right:6px;margin-bottom:6px;}
-.msg{margin-bottom:6px;}
-.msg .who{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:2px;}
-.msg .text{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;display:inline-block;color:#eaf0ff;max-width:90%;}
-.input-row{display:flex;gap:6px;}
-.input-row input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;}
-footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;}
-.video-container{position:relative;width:100%;height:0;border-radius:12px;overflow:hidden;transition:height 0.3s ease;background:#000;}
-.video-container.active{height:400px;}
-.remote-grid{display:grid;grid-template-columns:1fr;gap:8px;padding:8px;}
-.remote-video{width:100%;height:100%;object-fit:cover;border-radius:8px;}
-.remote-audio{width:100%;}
-.local-video{position:absolute;bottom:10px;right:10px;width:120px;height:90px;border:2px solid var(--accent);border-radius:8px;object-fit:cover; z-index:10;}
-.controls{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px; z-index:20;}
-.control-btn{background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:50%;border:none;color:#fff;cursor:pointer;}
-.info-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
-.small-btn{padding:6px 8px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer}
-.private-panel { position: fixed; right: 20px; bottom: 20px; width: 340px; max-height: 480px; z-index: 9999; display:flex; flex-direction:column; }
-@media(max-width:980px){main{grid-template-columns:1fr} .chat-panel{height:300px}}
-</style>
-</head>
+  <!-- ====== Favicon ====== -->
+  <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+
+  <!-- ====== Fonts ====== -->
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+  <!-- ====== Theme Colors (optional) ====== -->
+  <meta name="theme-color" content="#0f1720">
+
+  <!-- ====== Styles ====== -->
+  <style>
+    :root{
+      --bg:#0f1720;
+      --card:rgba(255,255,255,0.03);
+      --accent:#e3b043;
+      --muted:#b6c2d6;
+      --radius:12px;
+    }
+    *{box-sizing:border-box;margin:0;padding:0;font-family:'Poppins',sans-serif}
+    body{background:var(--bg);color:#e7eef8;min-height:100vh;display:flex;flex-direction:column;}
+    header{padding:18px 22px;display:flex;flex-direction:column;align-items:center;text-align:center;}
+    .logo{width:64px;height:64px;border-radius:12px;background:linear-gradient(135deg,#1b2430,#0f1720);display:flex;align-items:center;justify-content:center;border:1px solid rgba(255,255,255,0.08);margin-bottom:10px;}
+    .logo span{color:var(--accent);font-weight:700;font-size:28px;}
+    .title{font-size:22px;font-weight:700;margin-bottom:4px;}
+    .tagline{font-size:14px;color:#9fb1d0;margin-bottom:4px;}
+    .subtitle{font-size:14px;color:yellow;}
+    main{padding:16px;display:grid;grid-template-columns:1fr 360px;gap:16px;}
+    .panel{background:var(--card);border-radius:var(--radius);padding:16px;box-shadow:0 8px 30px rgba(0,0,0,0.5);}
+    .big-actions{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px;}
+    .big-btn{flex:1;padding:12px;border-radius:10px;border:none;font-weight:700;cursor:pointer;}
+    .video-btn{background:linear-gradient(90deg,#2b78ff,#6f9bff);color:#fff;}
+    .voice-btn{background:linear-gradient(90deg,#c79b34,#f0c472);color:#10121a;}
+    .text-btn{background:linear-gradient(90deg,#6ee7b7,#34d399);color:#0b2f1a;}
+    .status{color:var(--muted);font-size:13px;margin-bottom:8px;}
+    .chat-panel{display:flex;flex-direction:column;height:600px;overflow:hidden;}
+    .messages{flex:1;overflow:auto;padding-right:6px;margin-bottom:6px;}
+    .msg{margin-bottom:6px;}
+    .msg .who{font-weight:600;font-size:12px;color:var(--muted);margin-bottom:2px;}
+    .msg .text{background:rgba(255,255,255,0.02);padding:6px 10px;border-radius:8px;display:inline-block;color:#eaf0ff;max-width:90%;}
+    .input-row{display:flex;gap:6px;}
+    .input-row input{flex:1;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;}
+    footer{padding:10px;text-align:center;color:var(--muted);font-size:12px;}
+    .video-container{position:relative;width:100%;height:0;border-radius:12px;overflow:hidden;transition:height 0.3s ease;background:#000;}
+    .video-container.active{height:400px;}
+    .remote-grid{display:grid;grid-template-columns:1fr;gap:8px;padding:8px;}
+    .remote-video{width:100%;height:100%;object-fit:cover;border-radius:8px;}
+    .remote-audio{width:100%;}
+    .local-video{position:absolute;bottom:10px;right:10px;width:120px;height:90px;border:2px solid var(--accent);border-radius:8px;object-fit:cover;z-index:10;}
+    .controls{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:20;}
+    .control-btn{background:rgba(0,0,0,0.5);padding:8px 10px;border-radius:50%;border:none;color:#fff;cursor:pointer;}
+    .info-bar{display:flex;gap:8px;align-items:center;margin-bottom:8px;}
+    .small-btn{padding:6px 8px;border-radius:8px;border:none;background:rgba(255,255,255,0.03);color:var(--muted);cursor:pointer;}
+    .private-panel{position:fixed;right:20px;bottom:20px;width:340px;max-height:480px;z-index:9999;display:flex;flex-direction:column;}
+    @media(max-width:980px){main{grid-template-columns:1fr}.chat-panel{height:300px}}
+  </style>
+</head>  
 <body>
 <header>
   <div class="logo"><span>S</span></div>
